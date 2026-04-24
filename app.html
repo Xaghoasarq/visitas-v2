@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#1D4ED8"/>
+<title>Visitas en Terreno</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --blue:    #1D4ED8;
+  --blue-lt: #3B82F6;
+  --green:   #16A34A;
+  --green-lt:#22C55E;
+  --surface: #0F172A;
+  --card:    #1E293B;
+  --border:  #334155;
+  --text:    #F1F5F9;
+  --muted:   #94A3B8;
+  --danger:  #EF4444;
+  --warn:    #F59E0B;
+  --radius:  14px;
+  --shadow:  0 4px 24px rgba(0,0,0,.4);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; font-family: 'DM Sans', system-ui, sans-serif; background: var(--surface); color: var(--text); }
+
+/* ── Layout ── */
+#app { display: flex; flex-direction: column; height: 100dvh; }
+
+/* ── Header ── */
+header {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1D4ED8 100%);
+  padding: 16px 20px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,.3);
+}
+header h1 { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+header .sub { font-size: 11px; color: #93C5FD; margin-top: 1px; }
+#sync-badge {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; gap: 6px;
+}
+#sync-badge:active { transform: scale(.95); }
+#sync-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+#sync-badge .dot.online { background: var(--green-lt); }
+#sync-badge .dot.syncing { animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Tab bar ── */
+#tabs {
+  display: flex;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tab {
+  flex: 1; padding: 12px 8px 10px;
+  text-align: center; cursor: pointer;
+  font-size: 12px; font-weight: 600;
+  color: var(--muted); border-bottom: 2px solid transparent;
+  transition: all .2s;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.tab .ico { font-size: 20px; }
+.tab.active { color: var(--blue-lt); border-bottom-color: var(--blue-lt); }
+
+/* ── Pages ── */
+.page { display: none; flex: 1; overflow-y: auto; }
+.page.active { display: flex; flex-direction: column; }
+
+/* ── Form page ── */
+#page-form { padding: 16px; gap: 14px; }
+
+/* ── Vendedor selector ── */
+.field-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .8px;
+  color: var(--muted); margin-bottom: 6px;
+}
+select, input[type=text], input[type=tel], textarea {
+  width: 100%; padding: 13px 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  font-family: inherit; font-size: 15px;
+  appearance: none; outline: none;
+  transition: border-color .2s;
+}
+select:focus, input:focus, textarea:focus {
+  border-color: var(--blue-lt);
+}
+textarea { resize: none; min-height: 90px; }
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394A3B8' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; }
+
+/* ── Type selector ── */
+#type-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.type-btn {
+  padding: 16px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  cursor: pointer; text-align: center;
+  transition: all .2s;
+}
+.type-btn .ico { font-size: 28px; display: block; margin-bottom: 6px; }
+.type-btn .lbl { font-size: 13px; font-weight: 600; }
+.type-btn .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.type-btn.selected-cartel { border-color: #3B82F6; background: #1e3a8a22; }
+.type-btn.selected-prospeccion { border-color: #22C55E; background: #16a34a22; }
+.type-btn:active { transform: scale(.97); }
+
+/* ── Autocomplete ── */
+.autocomplete-wrap { position: relative; }
+#lugar-input { padding-right: 44px; }
+#lugar-clear {
+  position: absolute; right: 14px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none; color: var(--muted);
+  font-size: 18px; cursor: pointer; display: none;
+}
+#autocomplete-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); z-index: 100;
+  max-height: 200px; overflow-y: auto;
+  box-shadow: var(--shadow); display: none;
+}
+.ac-item {
+  padding: 12px 16px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:active { background: var(--border); }
+.ac-item .ac-tipo { font-size: 10px; color: var(--muted); background: var(--border); padding: 2px 7px; border-radius: 20px; }
+
+/* ── Dynamic fields ── */
+#fields-cartel, #fields-prospeccion { display: none; gap: 14px; flex-direction: column; }
+#fields-cartel.show, #fields-prospeccion.show { display: flex; }
+
+/* ── Photo capture ── */
+#foto-section { display: flex; flex-direction: column; gap: 10px; }
+#foto-preview-wrap {
+  position: relative;
+  background: var(--card); border: 2px dashed var(--border);
+  border-radius: var(--radius); height: 160px;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 8px; cursor: pointer;
+  overflow: hidden; transition: border-color .2s;
+}
+#foto-preview-wrap:active { border-color: var(--blue-lt); }
+#foto-preview-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#foto-placeholder { text-align: center; pointer-events: none; }
+#foto-placeholder .ico { font-size: 32px; }
+#foto-placeholder p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+#foto-input { display: none; }
+#foto-remove {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(0,0,0,.6); border: none; color: white;
+  border-radius: 50%; width: 28px; height: 28px;
+  font-size: 14px; cursor: pointer; display: none;
+  align-items: center; justify-content: center;
+}
+
+/* ── GPS strip ── */
+#gps-strip {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: var(--muted);
+}
+#gps-strip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex-shrink: 0; }
+#gps-strip .dot.ok { background: var(--green-lt); }
+#gps-coords { flex: 1; font-size: 11px; }
+
+/* ── Submit button ── */
+#btn-submit {
+  width: 100%; padding: 16px;
+  background: linear-gradient(135deg, var(--blue) 0%, var(--blue-lt) 100%);
+  border: none; border-radius: var(--radius);
+  color: white; font-family: inherit; font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: all .2s;
+  box-shadow: 0 4px 16px rgba(29,78,216,.4);
+  letter-spacing: .2px;
+}
+#btn-submit:active { transform: scale(.98); opacity: .9; }
+#btn-submit:disabled { background: var(--border); box-shadow: none; cursor: default; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #1E293B; color: var(--text);
+  padding: 10px 20px; border-radius: 20px;
+  font-size: 13px; font-weight: 500;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  opacity: 0; transition: all .3s; pointer-events: none; white-space: nowrap;
+  z-index: 999;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: var(--green); color: #86EFAC; }
+#toast.error   { border-color: var(--danger); color: #FCA5A5; }
+
+/* ── Config page ── */
+#page-config { padding: 16px; gap: 14px; }
+.config-section {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.config-section-title {
+  padding: 12px 16px; font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .8px; color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+}
+.vendedor-row {
+  display: flex; align-items: center; padding: 12px 16px;
+  border-bottom: 1px solid var(--border); gap: 12px;
+}
+.vendedor-row:last-child { border-bottom: none; }
+.vendedor-row .name { flex: 1; font-size: 15px; }
+.vendedor-row .del {
+  background: none; border: none; color: var(--danger);
+  font-size: 18px; cursor: pointer; padding: 4px;
+}
+.add-row {
+  display: flex; gap: 8px; padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+.add-row input { flex: 1; }
+.add-row button {
+  background: var(--blue); border: none; color: white;
+  border-radius: 10px; padding: 0 16px; font-size: 13px;
+  font-weight: 600; cursor: pointer; font-family: inherit;
+}
+
+/* ── Map page ── */
+#page-map { padding: 0; }
+#map-frame { width: 100%; flex: 1; border: none; min-height: 0; height: 100%; }
+
+/* ── Bottom nav ── */
+#bottom-nav {
+  display: flex; background: var(--card);
+  border-top: 1px solid var(--border); flex-shrink: 0;
+}
+.nav-btn {
+  flex: 1; padding: 10px 8px 8px;
+  background: none; border: none; color: var(--muted);
+  cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600; transition: color .2s;
+}
+.nav-btn .ico { font-size: 22px; }
+.nav-btn.active { color: var(--blue-lt); }
+
+/* ── Loading overlay ── */
+#loading-overlay {
+  position: fixed; inset: 0; background: var(--surface);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  z-index: 9999;
+}
+#loading-overlay .spin {
+  width: 48px; height: 48px;
+  border: 3px solid var(--border); border-top-color: var(--blue-lt);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading-overlay p { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="spin"></div>
+  <p>Cargando app...</p>
+</div>
+
+<div id="app">
+  <!-- HEADER -->
+  <header>
+    <div>
+      <h1>📍 Visitas en Terreno</h1>
+      <div class="sub" id="header-sub">Cargando...</div>
+    </div>
+    <div id="sync-badge" onclick="syncAll()">
+      <div class="dot" id="conn-dot"></div>
+      <span id="sync-label">0 pend.</span>
+    </div>
+  </header>
+
+  <!-- PAGES -->
+  <div id="page-form" class="page active">
+    <!-- VENDEDOR -->
+    <div>
+      <div class="field-label">Vendedor</div>
+      <select id="sel-vendedor">
+        <option value="">— Selecciona vendedor —</option>
+      </select>
+    </div>
+
+    <!-- TIPO DE REGISTRO -->
+    <div>
+      <div class="field-label">Tipo de registro</div>
+      <div id="type-selector">
+        <div class="type-btn" id="btn-cartel" onclick="setTipo('cartel')">
+          <span class="ico">📌</span>
+          <div class="lbl">Cartel</div>
+          <div class="sub">Publicidad</div>
+        </div>
+        <div class="type-btn" id="btn-prospeccion" onclick="setTipo('prospeccion')">
+          <span class="ico">👤</span>
+          <div class="lbl">Prospección</div>
+          <div class="sub">Terreno</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LUGAR con AUTOCOMPLETE -->
+    <div>
+      <div class="field-label">Lugar / Proyecto</div>
+      <div class="autocomplete-wrap">
+        <input type="text" id="lugar-input" placeholder="Ej: Municipalidad Frutillar" autocomplete="off" oninput="onLugarInput()" onfocus="onLugarFocus()"/>
+        <button id="lugar-clear" onclick="clearLugar()">✕</button>
+        <div id="autocomplete-list"></div>
+      </div>
+    </div>
+
+    <!-- CAMPOS CARTEL -->
+    <div id="fields-cartel">
+      <div>
+        <div class="field-label">Tipo de local</div>
+        <select id="sel-tipo-local">
+          <option value="">— Selecciona tipo —</option>
+          <option value="Municipalidad">🏛️ Municipalidad</option>
+          <option value="Comercio">🏪 Comercio</option>
+          <option value="Proyecto">🏗️ Proyecto inmobiliario</option>
+          <option value="Otro">📍 Otro</option>
+        </select>
+      </div>
+      <div>
+        <div class="field-label">Nombre del contacto</div>
+        <input type="text" id="inp-contacto" placeholder="Quien autorizó el cartel"/>
+      </div>
+      <div>
+        <div class="field-label">Número de cartel</div>
+        <input type="text" id="inp-num-cartel" placeholder="Ej: C-042"/>
+      </div>
+      <div>
+        <div class="field-label">Foto del cartel</div>
+        <div id="foto-section">
+          <div id="foto-preview-wrap" onclick="triggerFoto()">
+            <div id="foto-placeholder">
+              <div class="ico">📷</div>
+              <p>Toca para tomar foto</p>
+            </div>
+            <img id="foto-img" src="" alt="" style="display:none"/>
+            <button id="foto-remove" onclick="event.stopPropagation();removeFoto()">✕</button>
+          </div>
+          <input type="file" id="foto-input" accept="image/*" capture="environment" onchange="onFotoChange()"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAMPOS PROSPECCIÓN -->
+    <div id="fields-prospeccion">
+      <div>
+        <div class="field-label">Notas</div>
+        <textarea id="inp-notas" placeholder="Resultado de la visita, personas contactadas, observaciones..."></textarea>
+      </div>
+    </div>
+
+    <!-- GPS -->
+    <div id="gps-strip">
+      <div class="dot" id="gps-dot"></div>
+      <div id="gps-coords" class="ac-coords">Esperando GPS...</div>
+    </div>
+
+    <!-- SUBMIT -->
+    <button id="btn-submit" onclick="submitVisita()">📍 REGISTRAR VISITA</button>
+  </div>
+
+  <!-- PAGE CONFIG -->
+  <div id="page-config" class="page">
+    <div class="config-section">
+      <div class="config-section-title">👤 Vendedores</div>
+      <div id="vendedores-list"></div>
+      <div class="add-row">
+        <input type="text" id="inp-new-vendedor" placeholder="Nombre del vendedor" onkeydown="if(event.key==='Enter')addVendedorUI()"/>
+        <button onclick="addVendedorUI()">+ Agregar</button>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">📊 Estado</div>
+      <div style="padding:14px 16px; display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:13px; color:var(--muted);">Visitas pendientes de sincronizar</div>
+        <div style="font-size:28px; font-weight:700;" id="cfg-pending-count">0</div>
+        <button onclick="syncAll()" style="background:var(--blue);border:none;color:white;padding:10px 16px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;width:100%;">☁ Sincronizar ahora</button>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">ℹ️ Versión</div>
+      <div style="padding:14px 16px; font-size:13px; color:var(--muted);">
+        Visitas en Terreno v2.0<br>
+        Funciona sin internet · Se sincroniza automáticamente
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE MAP -->
+  <div id="page-map" class="page">
+    <iframe id="map-frame" src="mapa_calor.html" allow="geolocation"></iframe>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav id="bottom-nav">
+    <button class="nav-btn active" id="nav-form" onclick="showPage('form')">
+      <span class="ico">📝</span>Registrar
+    </button>
+    <button class="nav-btn" id="nav-map" onclick="showPage('map')">
+      <span class="ico">🗺️</span>Mapa
+    </button>
+    <button class="nav-btn" id="nav-config" onclick="showPage('config')">
+      <span class="ico">⚙️</span>Config
+    </button>
+  </nav>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIG — REEMPLAZA CON TU URL DEL APPS SCRIPT
+// ════════════════════════════════════════════════════════════
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwv0yZmaUE8KC8QJ3ZpAXe68EdXTDJFez87ARSb9VSZTOvaDwHUsfFc-xQDr7wNXT5K/exec';
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let tipoActual  = null;
+let gpsLat      = null;
+let gpsLng      = null;
+let gpsListo    = false;
+let fotoBase64  = null;
+let lugares     = [];   // [{nombre,lat,lng,tipo}]
+let vendedores  = [];
+let pendingCount= 0;
+let isOnline    = navigator.onLine;
+let isSyncing   = false;
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+async function init() {
+  // Service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+
+  // GPS
+  startGPS();
+
+  // Online/offline
+  window.addEventListener('online',  () => { isOnline = true;  updateConnDot(); syncAll(); });
+  window.addEventListener('offline', () => { isOnline = false; updateConnDot(); });
+  updateConnDot();
+
+  // Load data
+  await Promise.all([loadVendedores(), loadLugares()]);
+  updatePendingUI();
+
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('header-sub').textContent = isOnline ? 'En línea' : 'Sin conexión — modo offline';
+
+  // Restore last vendedor
+  const lastV = localStorage.getItem('lastVendedor');
+  if (lastV) {
+    const sel = document.getElementById('sel-vendedor');
+    if ([...sel.options].some(o => o.value === lastV)) sel.value = lastV;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// GPS
+// ════════════════════════════════════════════════════════════
+function startGPS() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.watchPosition(
+    pos => {
+      gpsLat   = pos.coords.latitude;
+      gpsLng   = pos.coords.longitude;
+      gpsListo = true;
+      const dot = document.getElementById('gps-dot');
+      dot.classList.add('ok');
+      document.getElementById('gps-coords').textContent =
+        `Lat: ${gpsLat.toFixed(5)}  Lng: ${gpsLng.toFixed(5)}`;
+    },
+    () => {
+      document.getElementById('gps-coords').textContent = 'GPS no disponible';
+    },
+    { enableHighAccuracy: true, timeout: 30000, maximumAge: 5000 }
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+// DATA LOADING
+// ════════════════════════════════════════════════════════════
+async function loadVendedores() {
+  // Try cache first
+  const cached = localStorage.getItem('vendedores');
+  if (cached) { vendedores = JSON.parse(cached); renderVendedores(); }
+
+  if (!isOnline) return;
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=vendedores&t=' + Date.now());
+    vendedores = await r.json();
+    localStorage.setItem('vendedores', JSON.stringify(vendedores));
+    renderVendedores();
+  } catch(e) {}
+}
+
+function renderVendedores() {
+  const sel = document.getElementById('sel-vendedor');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">— Selecciona vendedor —</option>';
+  vendedores.forEach(v => {
+    const o = document.createElement('option');
+    o.value = o.textContent = v;
+    sel.appendChild(o);
+  });
+  if (current) sel.value = current;
+
+  // Config list
+  const list = document.getElementById('vendedores-list');
+  list.innerHTML = '';
+  vendedores.forEach(v => {
+    const row = document.createElement('div');
+    row.className = 'vendedor-row';
+    row.innerHTML = `<span class="name">👤 ${v}</span><button class="del" onclick="deleteVendedorUI('${v}')">✕</button>`;
+    list.appendChild(row);
+  });
+  if (!vendedores.length) {
+    list.innerHTML = '<div style="padding:14px 16px;color:var(--muted);font-size:13px;">Sin vendedores — agrega uno abajo</div>';
+  }
+}
+
+async function loadLugares() {
+  const cached = localStorage.getItem('lugares');
+  if (cached) lugares = JSON.parse(cached);
+
+  if (!isOnline) return;
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=lugares&t=' + Date.now());
+    lugares = await r.json();
+    localStorage.setItem('lugares', JSON.stringify(lugares));
+  } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════════════
+// TIPO SELECTOR
+// ════════════════════════════════════════════════════════════
+function setTipo(tipo) {
+  tipoActual = tipo;
+  document.getElementById('btn-cartel').className     = 'type-btn' + (tipo==='cartel'      ? ' selected-cartel'      : '');
+  document.getElementById('btn-prospeccion').className = 'type-btn' + (tipo==='prospeccion' ? ' selected-prospeccion' : '');
+  document.getElementById('fields-cartel').className      = 'field-label' + (tipo==='cartel'      ? '' : '');
+  document.getElementById('fields-cartel').style.display      = tipo==='cartel'      ? 'flex' : 'none';
+  document.getElementById('fields-prospeccion').style.display = tipo==='prospeccion' ? 'flex' : 'none';
+}
+
+// ════════════════════════════════════════════════════════════
+// AUTOCOMPLETE
+// ════════════════════════════════════════════════════════════
+function onLugarInput() {
+  const q = document.getElementById('lugar-input').value.trim().toLowerCase();
+  document.getElementById('lugar-clear').style.display = q ? 'block' : 'none';
+  if (q.length < 1) { hideAC(); return; }
+  const matches = lugares.filter(l => l.nombre.toLowerCase().includes(q)).slice(0, 8);
+  showAC(matches, q);
+}
+
+function onLugarFocus() {
+  const q = document.getElementById('lugar-input').value.trim().toLowerCase();
+  if (q.length > 0) onLugarInput();
+}
+
+function showAC(matches, q) {
+  const list = document.getElementById('autocomplete-list');
+  list.innerHTML = '';
+  if (!matches.length) { list.style.display = 'none'; return; }
+  matches.forEach(l => {
+    const div = document.createElement('div');
+    div.className = 'ac-item';
+    const icon = l.tipo === 'cartel' ? '📌' : '👤';
+    const bold = l.nombre.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'), m => `<strong>${m}</strong>`);
+    div.innerHTML = `<span>${icon}</span><span style="flex:1">${bold}</span><span class="ac-tipo">${l.tipo}</span>`;
+    div.onclick = () => selectLugar(l);
+    list.appendChild(div);
+  });
+  list.style.display = 'block';
+}
+
+function selectLugar(l) {
+  document.getElementById('lugar-input').value = l.nombre;
+  document.getElementById('lugar-clear').style.display = 'block';
+  hideAC();
+  // Auto-set tipo if known
+  if (l.tipo && !tipoActual) setTipo(l.tipo);
+}
+
+function hideAC() {
+  document.getElementById('autocomplete-list').style.display = 'none';
+}
+
+function clearLugar() {
+  document.getElementById('lugar-input').value = '';
+  document.getElementById('lugar-clear').style.display = 'none';
+  hideAC();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.autocomplete-wrap')) hideAC();
+});
+
+// ════════════════════════════════════════════════════════════
+// FOTO
+// ════════════════════════════════════════════════════════════
+function triggerFoto() {
+  document.getElementById('foto-input').click();
+}
+
+function onFotoChange() {
+  const file = document.getElementById('foto-input').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    fotoBase64 = e.target.result;
+    const img = document.getElementById('foto-img');
+    img.src = fotoBase64;
+    img.style.display = 'block';
+    document.getElementById('foto-placeholder').style.display = 'none';
+    document.getElementById('foto-remove').style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeFoto() {
+  fotoBase64 = null;
+  document.getElementById('foto-img').style.display = 'none';
+  document.getElementById('foto-img').src = '';
+  document.getElementById('foto-placeholder').style.display = 'block';
+  document.getElementById('foto-remove').style.display = 'none';
+  document.getElementById('foto-input').value = '';
+}
+
+// ════════════════════════════════════════════════════════════
+// SUBMIT
+// ════════════════════════════════════════════════════════════
+async function submitVisita() {
+  const vendedor = document.getElementById('sel-vendedor').value;
+  const lugar    = document.getElementById('lugar-input').value.trim();
+
+  if (!vendedor)    { showToast('Selecciona un vendedor', 'error'); return; }
+  if (!tipoActual)  { showToast('Elige el tipo de registro', 'error'); return; }
+  if (!lugar)       { showToast('Escribe el nombre del lugar', 'error'); return; }
+  if (!gpsListo)    { showToast('Esperando señal GPS...', 'error'); return; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+
+  // Build record
+  const record = {
+    action    : 'registrar',
+    vendedor,
+    tipo      : tipoActual,
+    lugar,
+    lat       : gpsLat,
+    lng       : gpsLng,
+    tipo_local: document.getElementById('sel-tipo-local')?.value  || '',
+    contacto  : document.getElementById('inp-contacto')?.value    || '',
+    num_cartel: document.getElementById('inp-num-cartel')?.value  || '',
+    notas     : document.getElementById('inp-notas')?.value       || '',
+    foto_url  : '',
+    ts        : new Date().toISOString()
+  };
+
+  // Save locally first
+  savePending(record);
+  updatePendingUI();
+  showToast('✅ Guardado localmente', 'success');
+
+  // Reset form
+  resetForm(vendedor);
+
+  // Try to sync immediately
+  if (isOnline) {
+    await syncAll();
+  }
+
+  btn.disabled = false;
+  btn.textContent = '📍 REGISTRAR VISITA';
+  localStorage.setItem('lastVendedor', vendedor);
+}
+
+function resetForm(keepVendedor) {
+  document.getElementById('lugar-input').value = '';
+  document.getElementById('lugar-clear').style.display = 'none';
+  if (document.getElementById('sel-tipo-local')) document.getElementById('sel-tipo-local').value = '';
+  if (document.getElementById('inp-contacto'))   document.getElementById('inp-contacto').value  = '';
+  if (document.getElementById('inp-num-cartel')) document.getElementById('inp-num-cartel').value = '';
+  if (document.getElementById('inp-notas'))      document.getElementById('inp-notas').value      = '';
+  removeFoto();
+  setTipo(null);
+  document.getElementById('btn-cartel').className = 'type-btn';
+  document.getElementById('btn-prospeccion').className = 'type-btn';
+  document.getElementById('fields-cartel').style.display      = 'none';
+  document.getElementById('fields-prospeccion').style.display = 'none';
+  tipoActual = null;
+}
+
+// ════════════════════════════════════════════════════════════
+// OFFLINE QUEUE
+// ════════════════════════════════════════════════════════════
+function getPending() {
+  return JSON.parse(localStorage.getItem('pending') || '[]');
+}
+function setPending(arr) {
+  localStorage.setItem('pending', JSON.stringify(arr));
+}
+function savePending(record) {
+  const arr = getPending();
+  arr.push(record);
+  setPending(arr);
+  pendingCount = arr.length;
+}
+
+function updatePendingUI() {
+  const arr = getPending();
+  pendingCount = arr.length;
+  document.getElementById('sync-label').textContent = pendingCount + ' pend.';
+  document.getElementById('cfg-pending-count').textContent = pendingCount;
+}
+
+async function syncAll() {
+  if (isSyncing || !isOnline) return;
+  const arr = getPending();
+  if (!arr.length) return;
+
+  isSyncing = true;
+  const dot = document.getElementById('conn-dot');
+  dot.classList.add('syncing');
+
+  let sent = 0;
+  for (const record of [...arr]) {
+    try {
+      // Upload photo first if any
+      if (record._fotoBase64) {
+        const fRes = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'uploadfoto', data: record._fotoBase64, nombre: 'foto_' + Date.now() + '.jpg' })
+        });
+        const fData = await fRes.json();
+        if (fData.url) record.foto_url = fData.url;
+        delete record._fotoBase64;
+      }
+
+      const r = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(record) });
+      if (r.ok) {
+        const pending = getPending();
+        pending.shift();
+        setPending(pending);
+        sent++;
+      } else break;
+    } catch(e) { break; }
+  }
+
+  isSyncing = false;
+  dot.classList.remove('syncing');
+  updatePendingUI();
+
+  if (sent > 0) {
+    showToast('☁ ' + sent + ' visita(s) enviadas', 'success');
+    await loadLugares(); // Refresh autocomplete
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// VENDEDORES CONFIG
+// ════════════════════════════════════════════════════════════
+async function addVendedorUI() {
+  const inp    = document.getElementById('inp-new-vendedor');
+  const nombre = inp.value.trim();
+  if (!nombre) return;
+
+  if (!vendedores.includes(nombre)) {
+    vendedores.push(nombre);
+    localStorage.setItem('vendedores', JSON.stringify(vendedores));
+    renderVendedores();
+    inp.value = '';
+    showToast('Vendedor agregado', 'success');
+  }
+
+  if (isOnline) {
+    try {
+      await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'addvendedor', nombre }) });
+    } catch(e) {}
+  }
+}
+
+async function deleteVendedorUI(nombre) {
+  vendedores = vendedores.filter(v => v !== nombre);
+  localStorage.setItem('vendedores', JSON.stringify(vendedores));
+  renderVendedores();
+  showToast('Vendedor eliminado', 'success');
+
+  if (isOnline) {
+    try {
+      await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'deletevendedor', nombre }) });
+    } catch(e) {}
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════════
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════
+// CONNECTIVITY
+// ════════════════════════════════════════════════════════════
+function updateConnDot() {
+  const dot = document.getElementById('conn-dot');
+  dot.classList.toggle('online', isOnline);
+  document.getElementById('header-sub').textContent = isOnline ? 'En línea' : 'Sin conexión — modo offline';
+}
+
+// ════════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+// ════════════════════════════════════════════════════════════
+// KICK OFF
+// ════════════════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>

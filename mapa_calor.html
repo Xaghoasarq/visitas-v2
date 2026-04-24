@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Mapa – Visitas en Terreno</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', system-ui, sans-serif; background: #f8fafc; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Header ── */
+header {
+  background: #fff; border-bottom: 1px solid #e2e8f0;
+  padding: 10px 14px; flex-shrink: 0;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.logo { font-size: 14px; font-weight: 700; color: #1e293b; white-space: nowrap; }
+.stats { display: flex; gap: 10px; font-size: 11px; color: #64748b; }
+.stat strong { color: #1e293b; }
+#btn-refresh {
+  margin-left: auto; background: #1D4ED8; border: none; color: white;
+  padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; font-family: inherit;
+}
+#btn-refresh:disabled { background: #94a3b8; cursor: default; }
+
+/* ── Filters ── */
+#filters {
+  background: #fff; border-bottom: 1px solid #e2e8f0;
+  padding: 8px 12px; flex-shrink: 0;
+  display: flex; gap: 6px; overflow-x: auto; align-items: center;
+  scrollbar-width: none;
+}
+#filters::-webkit-scrollbar { display: none; }
+
+.filter-group { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.filter-sep { width: 1px; height: 20px; background: #e2e8f0; margin: 0 4px; flex-shrink: 0; }
+
+.chip {
+  padding: 5px 12px; border-radius: 20px; border: 1px solid #cbd5e1;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  background: #fff; color: #475569; white-space: nowrap;
+  transition: all .15s; user-select: none;
+}
+.chip:active { transform: scale(.95); }
+.chip.active-all    { background: #1e293b; color: #fff; border-color: #1e293b; }
+.chip.active-cartel { background: #1D4ED8; color: #fff; border-color: #1D4ED8; }
+.chip.active-pros   { background: #16A34A; color: #fff; border-color: #16A34A; }
+.chip.active-period { background: #0F172A; color: #fff; border-color: #0F172A; }
+
+select.chip { appearance: none; padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23475569' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+
+/* ── Map ── */
+#map { flex: 1; min-height: 0; }
+
+/* ── Legend ── */
+#legend {
+  position: absolute; bottom: 16px; right: 10px;
+  background: #ffffffee; border: 1px solid #e2e8f0;
+  border-radius: 12px; padding: 10px 14px;
+  z-index: 1000; font-size: 11px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  backdrop-filter: blur(8px);
+  max-width: 200px;
+}
+#legend h3 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: #94a3b8; margin-bottom: 8px; }
+.leg-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.leg-sym { width: 14px; height: 14px; flex-shrink: 0; }
+.leg-sym.sq { border-radius: 3px; }
+.leg-sym.ci { border-radius: 50%; }
+.leg-lbl { color: #374151; font-size: 10.5px; }
+.leg-sep { border: none; border-top: 1px solid #e2e8f0; margin: 6px 0; }
+
+/* ── Loading ── */
+#loading {
+  position: fixed; inset: 0; background: #f8fafc;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px; z-index: 9999;
+}
+.spin { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-top-color: #1D4ED8; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading p { font-size: 13px; color: #64748b; }
+
+/* ── Popup ── */
+.leaflet-popup-content-wrapper { border-radius: 12px !important; box-shadow: 0 8px 24px rgba(0,0,0,.15) !important; }
+.leaflet-popup-content { margin: 12px 16px !important; font-family: 'DM Sans', system-ui !important; font-size: 13px !important; }
+.pop-title { font-weight: 700; font-size: 14px; color: #1e293b; margin-bottom: 6px; }
+.pop-row { color: #475569; padding: 2px 0; }
+.pop-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; margin-top: 6px; }
+.pop-hist { margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+.pop-hist-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-bottom: 4px; }
+.pop-hist-item { font-size: 11px; color: #64748b; padding: 2px 0; }
+.pop-foto { margin-top: 8px; }
+.pop-foto img { width: 100%; border-radius: 8px; max-height: 120px; object-fit: cover; }
+
+/* ── Error bar ── */
+#error-bar { display: none; position: fixed; top: 0; left: 0; right: 0; background: #EF4444; color: #fff; text-align: center; padding: 8px; font-size: 12px; z-index: 9998; }
+</style>
+</head>
+<body>
+
+<div id="error-bar"></div>
+
+<header>
+  <div class="logo">📍 Visitas en Terreno</div>
+  <div class="stats">
+    <span>Carteles: <strong id="stat-carteles">—</strong></span>
+    <span>Visitas: <strong id="stat-visitas">—</strong></span>
+    <span>Lugares: <strong id="stat-lugares">—</strong></span>
+  </div>
+  <button id="btn-refresh" onclick="loadData()">↻ Actualizar</button>
+</header>
+
+<div id="filters">
+  <!-- Tipo -->
+  <div class="filter-group">
+    <div class="chip active-all" id="f-all"      onclick="setFiltroTipo('all')">Todos</div>
+    <div class="chip"            id="f-cartel"   onclick="setFiltroTipo('cartel')">📌 Carteles</div>
+    <div class="chip"            id="f-prosp"    onclick="setFiltroTipo('prospeccion')">👤 Visitas</div>
+  </div>
+  <div class="filter-sep"></div>
+  <!-- Período -->
+  <div class="filter-group">
+    <div class="chip" id="fp-all"   onclick="setFiltroPeriodo('all')">Todos</div>
+    <div class="chip" id="fp-01"    onclick="setFiltroPeriodo('01')">Hoy/Ayer</div>
+    <div class="chip" id="fp-27"    onclick="setFiltroPeriodo('27')">2-7 días</div>
+    <div class="chip" id="fp-815"   onclick="setFiltroPeriodo('815')">8-15 días</div>
+    <div class="chip" id="fp-1630"  onclick="setFiltroPeriodo('1630')">16-30 días</div>
+    <div class="chip" id="fp-30"    onclick="setFiltroPeriodo('30')">+30 días</div>
+  </div>
+  <div class="filter-sep"></div>
+  <!-- Vendedor -->
+  <select class="chip" id="f-vendedor" onchange="renderMap()">
+    <option value="all">Todos los vendedores</option>
+  </select>
+</div>
+
+<div id="map"></div>
+
+<div id="legend">
+  <h3>Carteles 📌</h3>
+  <div class="leg-row"><div class="leg-sym sq" style="background:#1D4ED8"></div><div class="leg-lbl">Hoy / Ayer</div></div>
+  <div class="leg-row"><div class="leg-sym sq" style="background:#38BDF8"></div><div class="leg-lbl">2-7 días</div></div>
+  <div class="leg-row"><div class="leg-sym sq" style="background:#7C3AED"></div><div class="leg-lbl">8-15 días</div></div>
+  <div class="leg-row"><div class="leg-sym sq" style="background:#5B21B6"></div><div class="leg-lbl">16-30 días</div></div>
+  <div class="leg-row"><div class="leg-sym sq" style="background:#1E1B4B"></div><div class="leg-lbl">+30 días</div></div>
+  <hr class="leg-sep"/>
+  <h3>Visitas 👤</h3>
+  <div class="leg-row"><div class="leg-sym ci" style="background:#16A34A"></div><div class="leg-lbl">Hoy / Ayer</div></div>
+  <div class="leg-row"><div class="leg-sym ci" style="background:#EAB308"></div><div class="leg-lbl">2-7 días</div></div>
+  <div class="leg-row"><div class="leg-sym ci" style="background:#F97316"></div><div class="leg-lbl">8-15 días</div></div>
+  <div class="leg-row"><div class="leg-sym ci" style="background:#DC2626"></div><div class="leg-lbl">16-30 días</div></div>
+  <div class="leg-row"><div class="leg-sym ci" style="background:#7F1D1D"></div><div class="leg-lbl">+30 días</div></div>
+</div>
+
+<div id="loading">
+  <div class="spin"></div>
+  <p>Cargando visitas...</p>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwv0yZmaUE8KC8QJ3ZpAXe68EdXTDJFez87ARSb9VSZTOvaDwHUsfFc-xQDr7wNXT5K/exec';
+
+// ── Color system ──────────────────────────────────────────────
+const COLORES = {
+  cartel: [
+    { max:  1, color: '#1D4ED8', label: 'Hoy/Ayer' },
+    { max:  7, color: '#38BDF8', label: '2-7 días' },
+    { max: 15, color: '#7C3AED', label: '8-15 días' },
+    { max: 30, color: '#5B21B6', label: '16-30 días' },
+    { max: Infinity, color: '#1E1B4B', label: '+30 días' },
+  ],
+  prospeccion: [
+    { max:  1, color: '#16A34A', label: 'Hoy/Ayer' },
+    { max:  7, color: '#EAB308', label: '2-7 días' },
+    { max: 15, color: '#F97316', label: '8-15 días' },
+    { max: 30, color: '#DC2626', label: '16-30 días' },
+    { max: Infinity, color: '#7F1D1D', label: '+30 días' },
+  ]
+};
+
+function getColor(tipo, dias) {
+  const arr = COLORES[tipo] || COLORES.prospeccion;
+  return arr.find(r => dias <= r.max) || arr[arr.length - 1];
+}
+
+function diasDesde(ts) {
+  if (!ts) return 9999;
+  const d = new Date(ts);
+  return isNaN(d) ? 9999 : (Date.now() - d) / 86400000;
+}
+
+function periodoDias(dias) {
+  if (dias <=  1) return '01';
+  if (dias <=  7) return '27';
+  if (dias <= 15) return '815';
+  if (dias <= 30) return '1630';
+  return '30';
+}
+
+// ── Map setup ─────────────────────────────────────────────────
+const map = L.map('map').setView([-33.4, -70.6], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap', maxZoom: 19
+}).addTo(map);
+
+let markerGroup = L.layerGroup().addTo(map);
+let heatLayer   = null;
+let allData     = [];   // raw visits from server
+let lugaresMap  = {};   // nombre → { ultimaVisita, tipo, lat, lng, historial[] }
+let filtroTipo   = 'all';
+let filtroPeriodo= 'all';
+
+// ── Filters ───────────────────────────────────────────────────
+function setFiltroTipo(v) {
+  filtroTipo = v;
+  document.querySelectorAll('#f-all,#f-cartel,#f-prosp').forEach(c => {
+    c.className = 'chip';
+  });
+  if (v === 'all')        document.getElementById('f-all').classList.add('active-all');
+  if (v === 'cartel')     document.getElementById('f-cartel').classList.add('active-cartel');
+  if (v === 'prospeccion')document.getElementById('f-prosp').classList.add('active-pros');
+  renderMap();
+}
+
+function setFiltroPeriodo(v) {
+  filtroPeriodo = v;
+  document.querySelectorAll('[id^="fp-"]').forEach(c => c.className = 'chip');
+  const el = document.getElementById('fp-' + v) || document.getElementById('fp-all');
+  if (el) el.classList.add(v === 'all' ? 'active-all' : 'active-period');
+  renderMap();
+}
+
+// ── Load data ─────────────────────────────────────────────────
+async function loadData() {
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = true; btn.textContent = '⏳...';
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('error-bar').style.display = 'none';
+
+  try {
+    const r = await fetch(SCRIPT_URL + '?action=visitas&t=' + Date.now());
+    allData = await r.json();
+    if (!Array.isArray(allData)) throw new Error('Datos inválidos');
+
+    // Build lugaresMap — ONE point per place name
+    lugaresMap = {};
+    allData.forEach(v => {
+      const key = (v.lugar || '').trim().toLowerCase();
+      if (!key || !v.lat || !v.lng) return;
+
+      if (!lugaresMap[key]) {
+        lugaresMap[key] = {
+          nombre: v.lugar,
+          lat: v.lat, lng: v.lng,
+          tipo: v.tipo,
+          ultimaVisitaTs: v.timestamp,
+          historial: []
+        };
+      }
+      const lugar = lugaresMap[key];
+      lugar.historial.push(v);
+      // Keep most recent
+      if (v.timestamp > lugar.ultimaVisitaTs) {
+        lugar.ultimaVisitaTs = v.timestamp;
+        lugar.tipo = v.tipo;
+        lugar.lat  = v.lat;
+        lugar.lng  = v.lng;
+      }
+    });
+
+    // Populate vendedor filter
+    const vendedores = [...new Set(allData.map(v => v.vendedor).filter(Boolean))].sort();
+    const sel = document.getElementById('f-vendedor');
+    sel.innerHTML = '<option value="all">Todos los vendedores</option>';
+    vendedores.forEach(v => {
+      const o = document.createElement('option');
+      o.value = o.textContent = v;
+      sel.appendChild(o);
+    });
+
+    renderMap();
+  } catch(e) {
+    const eb = document.getElementById('error-bar');
+    eb.style.display = 'block';
+    eb.textContent = '⚠ Error: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '↻ Actualizar';
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+// ── Render map ────────────────────────────────────────────────
+function renderMap() {
+  markerGroup.clearLayers();
+  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+
+  const filtroVendedor = document.getElementById('f-vendedor').value;
+  const heatPoints = [];
+  const bounds     = [];
+  let cntCarteles  = 0, cntVisitas = 0, cntLugares = 0;
+
+  Object.values(lugaresMap).forEach(lugar => {
+    // Filter by tipo
+    if (filtroTipo !== 'all' && lugar.tipo !== filtroTipo) return;
+
+    // Filter by vendedor — check if any visit matches
+    const histFiltrado = lugar.historial.filter(h => {
+      if (filtroVendedor !== 'all' && h.vendedor !== filtroVendedor) return false;
+      return true;
+    });
+    if (histFiltrado.length === 0) return;
+
+    // Most recent visit of filtered history
+    const masReciente = histFiltrado.reduce((a, b) => a.timestamp > b.timestamp ? a : b);
+    const dias = diasDesde(masReciente.timestamp);
+
+    // Filter by period
+    if (filtroPeriodo !== 'all' && periodoDias(dias) !== filtroPeriodo) return;
+
+    const tipo  = lugar.tipo || 'prospeccion';
+    const cfg   = getColor(tipo, dias);
+    const diasF = Math.floor(dias);
+
+    cntLugares++;
+    if (tipo === 'cartel') cntCarteles++;
+    else cntVisitas++;
+
+    bounds.push([lugar.lat, lugar.lng]);
+
+    // ── Marker ────────────────────────────────────────────────
+    let marker;
+    if (tipo === 'cartel') {
+      // Square marker via DivIcon
+      const size = 14;
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:${size}px;height:${size}px;background:${cfg.color};border:2px solid rgba(255,255,255,.8);border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size/2, size/2]
+      });
+      marker = L.marker([lugar.lat, lugar.lng], { icon });
+    } else {
+      marker = L.circleMarker([lugar.lat, lugar.lng], {
+        radius: 8, color: '#fff', weight: 2,
+        fillColor: cfg.color, fillOpacity: .9
+      });
+    }
+
+    // Popup
+    const popup = buildPopup(lugar, masReciente, histFiltrado, cfg, diasF, tipo);
+    marker.bindPopup(popup, { maxWidth: 260 });
+    markerGroup.addLayer(marker);
+
+    // Heat point
+    heatPoints.push([lugar.lat, lugar.lng, Math.max(0.1, 1 - (dias / 40))]);
+  });
+
+  // Stats
+  document.getElementById('stat-carteles').textContent = cntCarteles;
+  document.getElementById('stat-visitas').textContent  = cntVisitas;
+  document.getElementById('stat-lugares').textContent  = cntLugares;
+
+  // Heat layer
+  if (heatPoints.length) {
+    heatLayer = L.heatLayer(heatPoints, {
+      radius: 35, blur: 25, maxZoom: 16,
+      gradient: { 0: '#1E1B4B', 0.3: '#7C3AED', 0.6: '#EAB308', 1: '#16A34A' }
+    }).addTo(map);
+  }
+
+  if (bounds.length) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+}
+
+function buildPopup(lugar, reciente, histFiltrado, cfg, diasF, tipo) {
+  const icon = tipo === 'cartel' ? '📌' : '👤';
+  const tipoLabel = tipo === 'cartel' ? 'Cartel' : 'Prospección';
+
+  let html = `<div class="pop-title">${icon} ${escH(lugar.nombre)}</div>`;
+  html += `<div class="pop-row">👤 ${escH(reciente.vendedor || '—')}</div>`;
+  html += `<div class="pop-row">🗓 Hace <strong>${diasF}</strong> día(s) · ${escH(reciente.fecha || '')}</div>`;
+
+  if (tipo === 'cartel') {
+    if (reciente.tipo_local) html += `<div class="pop-row">🏢 ${escH(reciente.tipo_local)}</div>`;
+    if (reciente.contacto)   html += `<div class="pop-row">📞 ${escH(reciente.contacto)}</div>`;
+    if (reciente.num_cartel) html += `<div class="pop-row">🔢 Cartel N° ${escH(reciente.num_cartel)}</div>`;
+  } else {
+    if (reciente.notas)      html += `<div class="pop-row">📝 ${escH(reciente.notas)}</div>`;
+  }
+
+  html += `<span class="pop-badge" style="background:${cfg.color}22;color:${cfg.color};border:1px solid ${cfg.color}44">${tipoLabel} · ${cfg.label}</span>`;
+
+  if (reciente.foto_url) {
+    html += `<div class="pop-foto"><img src="${reciente.foto_url}" alt="foto" onerror="this.style.display='none'"/></div>`;
+  }
+
+  // History (last 3)
+  if (histFiltrado.length > 1) {
+    const sorted = [...histFiltrado].sort((a,b) => b.timestamp > a.timestamp ? 1 : -1);
+    html += `<div class="pop-hist"><div class="pop-hist-title">Historial (${histFiltrado.length} visitas)</div>`;
+    sorted.slice(0, 3).forEach(h => {
+      const d = Math.floor(diasDesde(h.timestamp));
+      html += `<div class="pop-hist-item">• ${escH(h.vendedor)} — ${escH(h.fecha || '')} (hace ${d}d)</div>`;
+    });
+    if (sorted.length > 3) html += `<div class="pop-hist-item" style="color:#94a3b8">...y ${sorted.length - 3} más</div>`;
+    html += '</div>';
+  }
+
+  return html;
+}
+
+function escH(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Init
+setFiltroTipo('all');
+setFiltroPeriodo('all');
+loadData();
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
