@@ -701,8 +701,7 @@ async function submitVisita() {
                   try {
                               const fotoRes = await fetch(SCRIPT_URL, {
                                             method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({
+                                                                                        body: JSON.stringify({
                                                             action: 'uploadFoto',
                                                             data: fotoBase64,
                                                             nombre: 'foto_' + vendedor.replace(/\s+/g,'_') + '_' + Date.now() + '.jpg'
@@ -782,8 +781,8 @@ async function syncAll() {
   for (const record of [...arr]) {
     try {
       // La foto va embebida en el mismo POST (el Apps Script la sube a Drive)
-      const r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(record) });
-      if (r.ok) {
+        const r = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(record) });  
+              if (r.ok) {
         const pending = getPending();
         pending.shift();
         setPending(pending);
