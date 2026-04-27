@@ -164,7 +164,6 @@ select.chip { appearance: none; padding-right: 28px;
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby-EuyCjzloWI0mUWCUv10MLth03Ocy0_aeTGZnZ5eNCsBGW0PPEgWV6xg1VIz7vg/exec';
 
@@ -212,7 +211,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 let markerGroup = L.layerGroup().addTo(map);
-let heatLayer   = null;
 let allData     = [];   // raw visits from server
 let lugaresMap  = {};   // nombre → { ultimaVisita, tipo, lat, lng, historial[] }
 let filtroTipo   = 'all';
@@ -300,10 +298,8 @@ async function loadData() {
 // ── Render map ────────────────────────────────────────────────
 function renderMap() {
   markerGroup.clearLayers();
-  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
 
   const filtroVendedor = document.getElementById('f-vendedor').value;
-  const heatPoints = [];
   const bounds     = [];
   let cntCarteles  = 0, cntVisitas = 0, cntLugares = 0;
 
@@ -360,7 +356,6 @@ function renderMap() {
     markerGroup.addLayer(marker);
 
     // Heat point
-    heatPoints.push([lugar.lat, lugar.lng, Math.max(0.1, 1 - (dias / 40))]);
   });
 
   // Stats
@@ -368,15 +363,7 @@ function renderMap() {
   document.getElementById('stat-visitas').textContent  = cntVisitas;
   document.getElementById('stat-lugares').textContent  = cntLugares;
 
-  // Heat layer
-  if (heatPoints.length) {
-    heatLayer = L.heatLayer(heatPoints, {
-      radius: 35, blur: 25, maxZoom: 16,
-      gradient: { 0: '#1E1B4B', 0.3: '#7C3AED', 0.6: '#EAB308', 1: '#16A34A' }
-    }).addTo(map);
-  }
-
-  if (bounds.length) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    if (bounds.length) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
 }
 
 function buildPopup(lugar, reciente, histFiltrado, cfg, diasF, tipo) {
