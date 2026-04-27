@@ -696,6 +696,11 @@ async function submitVisita() {
     ts        : new Date().toISOString()
   };
 
+  // Attach photo if taken
+  if (fotoBase64) {
+    record._fotoBase64 = fotoBase64;
+  }
+
   // Save locally first
   savePending(record);
   updatePendingUI();
@@ -765,17 +770,7 @@ async function syncAll() {
   let sent = 0;
   for (const record of [...arr]) {
     try {
-      // Upload photo first if any
-      if (record._fotoBase64) {
-        const fRes = await fetch(SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'uploadfoto', data: record._fotoBase64, nombre: 'foto_' + Date.now() + '.jpg' })
-        });
-        const fData = await fRes.json();
-        if (fData.url) record.foto_url = fData.url;
-        delete record._fotoBase64;
-      }
-
+      // La foto va embebida en el mismo POST (el Apps Script la sube a Drive)
       const r = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(record) });
       if (r.ok) {
         const pending = getPending();
