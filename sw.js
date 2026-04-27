@@ -1,5 +1,5 @@
 // sw.js — Service Worker para Visitas en Terreno v2
-const CACHE = 'visitas-v2';
+const CACHE = ''visitas-v2-3';
 const ASSETS = [
   '/visitas-v2/app.html',
   '/visitas-v2/mapa_calor.html',
