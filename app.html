@@ -644,16 +644,25 @@ function onFotoChange() {
   const file = document.getElementById('foto-input').files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
-    fotoBase64 = e.target.result;
-    const img = document.getElementById('foto-img');
-    img.src = fotoBase64;
-    img.style.display = 'block';
-    document.getElementById('foto-placeholder').style.display = 'none';
-    document.getElementById('foto-remove').style.display = 'flex';
-  };
-  reader.readAsDataURL(file);
-}
+    reader.onload = e => {
+          const tmpImg = new Image();
+          tmpImg.onload = () => {
+                  const MAX = 800;
+                  let w = tmpImg.width, h = tmpImg.height;
+                  if (w > MAX || h > MAX) { const r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
+                  const cv = document.createElement('canvas');
+                  cv.width = w; cv.height = h;
+                  cv.getContext('2d').drawImage(tmpImg, 0, 0, w, h);
+                  fotoBase64 = cv.toDataURL('image/jpeg', 0.7);
+                  const img = document.getElementById('foto-img');
+                  img.src = fotoBase64; img.style.display = 'block';
+                  document.getElementById('foto-placeholder').style.display = 'none';
+                  document.getElementById('foto-remove').style.display = 'flex';
+          };
+          tmpImg.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  
 
 function removeFoto() {
   fotoBase64 = null;
@@ -696,22 +705,9 @@ async function submitVisita() {
     ts        : new Date().toISOString()
   };
 
-        // Upload photo first (separate call, before saving record)
-        if (fotoBase64 && isOnline) {
-                  try {
-                              const fotoRes = await fetch(SCRIPT_URL, {
-                                            method: 'POST',
-                                                                                        body: JSON.stringify({
-                                                            action: 'uploadFoto',
-                                                            data: fotoBase64,
-                                                            nombre: 'foto_' + vendedor.replace(/\s+/g,'_') + '_' + Date.now() + '.jpg'
-                                            })
-                              });
-                              const fotoData = await fotoRes.json();
-                              if (fotoData.url) record.foto_url = fotoData.url;
-                  } catch(e) { console.error('Error subiendo foto:', e); }
-        }
-  // Save locally first
+              // Foto comprimida: Apps Script sube a Drive
+        if (fotoBase64) record._fotoBase64 = fotoBase64;
+        // Save locally first
   savePending(record);
   updatePendingUI();
   showToast('✅ Guardado localmente', 'success');
